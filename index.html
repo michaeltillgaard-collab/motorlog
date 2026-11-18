@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="da"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Motorlog</title>
+<style>
+:root{--bg:#eef1ee;--card:#fff;--ink:#14232d;--mut:#5d6d75;--line:#d5dcd8;--ok:#2f6f5e;--warn:#b7791f;--bad:#c0392b;--hd:#14232d;--hdt:#f2e9c9;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a22;--card:#17262f;--ink:#e8eeea;--mut:#92a3aa;--line:#2a3b45;--ok:#5fb89f;--warn:#e0a94a;--bad:#ef7b6d;--hd:#050c11;--hdt:#f2e9c9}}
+:root[data-theme="dark"]{--bg:#0e1a22;--card:#17262f;--ink:#e8eeea;--mut:#92a3aa;--line:#2a3b45;--ok:#5fb89f;--warn:#e0a94a;--bad:#ef7b6d;--hd:#050c11;--hdt:#f2e9c9}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "Avenir Next","Segoe UI",system-ui,sans-serif;max-width:480px;margin:auto;padding-bottom:84px}
+h1{font-size:22px;margin:0 0 12px}h2{font-size:17px;margin:20px 0 8px}
+main{padding:16px}
+.meter{background:var(--hd);color:var(--hdt);border-radius:14px;padding:16px}
+.digits{display:flex;gap:4px;margin:8px 0 12px}
+.digits span{flex:0 0 auto;width:34px;height:48px;background:#000;border:1px solid #3a4a52;border-radius:5px;font:700 30px/48px ui-monospace,Menlo,monospace;text-align:center}
+.digits span:last-child{background:#f2e9c9;color:#000}
+.row{display:flex;gap:8px;align-items:center}
+button,input,select,textarea{font:inherit;color:inherit}
+button{min-height:48px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+button.p{background:var(--ok);border-color:var(--ok);color:#fff;font-weight:600}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+.meter button{background:transparent;color:var(--hdt);border-color:#5b6a72}
+input,textarea,select{width:100%;min-height:48px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
+.card{background:var(--card);border:1px solid var(--line);border-left-width:6px;border-radius:10px;padding:12px;margin-bottom:10px}
+.card.ok{border-left-color:var(--ok)}.card.warn{border-left-color:var(--warn)}.card.bad{border-left-color:var(--bad)}
+.card b{display:block}.mut{color:var(--mut);font-size:14px}
+.tag{font-weight:600}.ok .tag{color:var(--ok)}.warn .tag{color:var(--warn)}.bad .tag{color:var(--bad)}
+.chk label{display:flex;gap:12px;align-items:center;min-height:48px;border-bottom:1px solid var(--line)}
+.chk input{width:26px;height:26px;min-height:0;flex:none}
+nav{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:auto;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;border:0;border-radius:0;min-height:60px;background:none;color:var(--mut);font-size:13px}
+nav button[aria-current="true"]{color:var(--ink);font-weight:700;box-shadow:inset 0 3px var(--ok)}
+dialog{border:0;border-radius:14px;padding:16px;width:calc(100% - 32px);max-width:440px;background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+label.f{display:block;margin:10px 0 4px;font-size:14px;color:var(--mut)}
+a.cal{color:var(--ink);font-size:14px}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0}dt{color:var(--mut)}dd{margin:0}
+.part{display:flex;gap:8px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.part input[type=checkbox]{width:24px;height:24px;min-height:0;flex:none;margin-top:2px}
+.part .info{flex:1;min-width:0}
+.part .info b{font-size:15px}
+.part .info .mut{font-size:13px}
+.manual-box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+.manual-box h3{margin:0 0 8px;font-size:15px}
+.manual-box ul{margin:0;padding-left:18px;font-size:14px;line-height:1.6}
+.manual-box .src{font-size:12px;color:var(--mut);margin-top:8px;font-style:italic}
+</style></head><body>
+<main id="v"></main>
+<nav id="nav"></nav>
+<dialog id="dlg"></dialog>
+<script>
+const DAY=864e5,K="motorlog3",KOLD="motorlog2";
+const iso=d=>d.toISOString().slice(0,10),ago=n=>iso(new Date(Date.now()-n*DAY));
+const fmt=s=>new Date(s).toLocaleDateString("da-DK",{day:"numeric",month:"short",year:"numeric"});
+
+// ============ ENGINE DATABASE ============
+const ENGINES = {
+"3YM20": {
+  brand:"Yanmar", model:"3YM20", hoursPerMonth:15,
+  fluids:{ Motorolie:"API CD el. højere, SAE 10W30 / 15W40", Drevolie:"Geart: SAE 20/30 (API CD+). Sejldrev SD20: GL4.5, SAE 90 / 80W90", Kølevæske:"Langtidsholdbar (LLC), 30-60 %" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:200,m:12},
+    {key:"oilFilter",name:"Oliefilter",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter",h:250,m:12},
+    {key:"waterSep",name:"Tøm vandudskiller",h:50,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:50,m:1},
+    {key:"sailDriveOil",name:"Sejldrevsolie (kun sejldrev)",h:100,m:6},
+    {key:"gearOil",name:"Geartolie (kun geart)",h:250,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:250,m:12},
+    {key:"coolant",name:"Kølevæske",h:0,m:24},
+    {key:"airFilter",name:"Rens luftfilter",h:250,m:12},
+    {key:"mixElbow",name:"Blandingsalbue",h:500,m:24},
+    {key:"impellerChange",name:"Skift impeller",h:1000,m:48}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Yanmar 3YM20",alt:"",qty:1,linkedTo:["oilFilter","oil"],note:"Kontroller mod manual"},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Yanmar 3YM20",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Yanmar 3YM20",alt:"",qty:1,linkedTo:["impellerChange","impellerCheck"],note:"Medbring pakning"},
+    {key:"sailDriveOil",name:"Sejldrevsolie SD20",oem:"PLACEHOLDER – specificér",alt:"",qty:1,linkedTo:["sailDriveOil"],note:"GL4.5 SAE 90/80W90"},
+    {key:"gearOil",name:"Geartolie",oem:"PLACEHOLDER – specificér",alt:"",qty:1,linkedTo:["gearOil"],note:"SAE 20/30 API CD+"}
+  ],
+  manual:{
+    notes:["Første olieskift efter 50 timer","Kontroller impeller hvert 250. time, skift ved 1000 timer","Kølevæske skiftes hvert 2. år"],
+    source:"Yanmar YM Operation Manual – verificér mod din egen manual"
+  }
+},
+"2YM15": {
+  brand:"Yanmar", model:"2YM15", hoursPerMonth:15,
+  fluids:{ Motorolie:"API CD el. højere, SAE 10W30 / 15W40", Drevolie:"Geart: SAE 20/30 (API CD+). Sejldrev SD20: GL4.5, SAE 90 / 80W90", Kølevæske:"Langtidsholdbar (LLC), 30-60 %" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:200,m:12},
+    {key:"oilFilter",name:"Oliefilter",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter",h:250,m:12},
+    {key:"waterSep",name:"Tøm vandudskiller",h:50,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:50,m:1},
+    {key:"sailDriveOil",name:"Sejldrevsolie (kun sejldrev)",h:100,m:6},
+    {key:"gearOil",name:"Geartolie (kun geart)",h:250,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:250,m:12},
+    {key:"coolant",name:"Kølevæske",h:0,m:24},
+    {key:"airFilter",name:"Rens luftfilter",h:250,m:12},
+    {key:"mixElbow",name:"Blandingsalbue",h:500,m:24},
+    {key:"impellerChange",name:"Skift impeller",h:1000,m:48}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Yanmar 2YM15",alt:"",qty:1,linkedTo:["oilFilter","oil"],note:""},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Yanmar 2YM15",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Yanmar 2YM15",alt:"",qty:1,linkedTo:["impellerChange","impellerCheck"],note:"Medbring pakning"},
+    {key:"sailDriveOil",name:"Sejldrevsolie SD20",oem:"PLACEHOLDER",alt:"",qty:1,linkedTo:["sailDriveOil"],note:"GL4.5 SAE 90/80W90"},
+    {key:"gearOil",name:"Geartolie",oem:"PLACEHOLDER",alt:"",qty:1,linkedTo:["gearOil"],note:"SAE 20/30 API CD+"}
+  ],
+  manual:{ notes:["Første olieskift efter 50 timer","Impeller tjek 250 t, skift 1000 t","Kølevæske hvert 2. år"], source:"Yanmar YM Operation Manual" }
+},
+"3YM30": {
+  brand:"Yanmar", model:"3YM30", hoursPerMonth:15,
+  fluids:{ Motorolie:"API CD el. højere, SAE 10W30 / 15W40", Drevolie:"Geart: SAE 20/30 (API CD+). Sejldrev SD20: GL4.5, SAE 90 / 80W90", Kølevæske:"Langtidsholdbar (LLC), 30-60 %" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:200,m:12},
+    {key:"oilFilter",name:"Oliefilter",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter",h:250,m:12},
+    {key:"waterSep",name:"Tøm vandudskiller",h:50,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:50,m:1},
+    {key:"sailDriveOil",name:"Sejldrevsolie (kun sejldrev)",h:100,m:6},
+    {key:"gearOil",name:"Geartolie (kun geart)",h:250,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:250,m:12},
+    {key:"coolant",name:"Kølevæske",h:0,m:24},
+    {key:"airFilter",name:"Rens luftfilter",h:250,m:12},
+    {key:"mixElbow",name:"Blandingsalbue",h:500,m:24},
+    {key:"impellerChange",name:"Skift impeller",h:1000,m:48}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Yanmar 3YM30",alt:"",qty:1,linkedTo:["oilFilter","oil"],note:""},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Yanmar 3YM30",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Yanmar 3YM30",alt:"",qty:1,linkedTo:["impellerChange","impellerCheck"],note:"Medbring pakning"},
+    {key:"sailDriveOil",name:"Sejldrevsolie SD20",oem:"PLACEHOLDER",alt:"",qty:1,linkedTo:["sailDriveOil"],note:"GL4.5 SAE 90/80W90"},
+    {key:"gearOil",name:"Geartolie",oem:"PLACEHOLDER",alt:"",qty:1,linkedTo:["gearOil"],note:"SAE 20/30 API CD+"}
+  ],
+  manual:{ notes:["Første olieskift efter 50 timer","Impeller tjek 250 t, skift 1000 t","Kølevæske hvert 2. år"], source:"Yanmar YM Operation Manual" }
+},
+"D1-13": {
+  brand:"Volvo Penta", model:"D1-13", hoursPerMonth:15,
+  fluids:{ Motorolie:"VDS-3 (eller VDS-2 + API CH-4/CI-4), SAE 15W/40 eller 20W/50", Drevolie:"ATF (Dexron II/III) i gear og sejldrev 130S", Kølevæske:"40 % Volvo Penta Coolant, 60 % rent vand" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:200,m:12},
+    {key:"gearOil",name:"Gear-/sejldrevsolie",h:200,m:12},
+    {key:"anoder",name:"Anoder og korrosionsbeskyttelse",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter og forfilter",h:500,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:500,m:12},
+    {key:"coolant",name:"Kølevæske og varmeveksler",h:500,m:24},
+    {key:"airFilter",name:"Luftfilter",h:500,m:24},
+    {key:"foldProp",name:"Rens foldepropel",h:0,m:12},
+    {key:"manchet",name:"Gummimanchet sejldrev",h:0,m:12},
+    {key:"waterSep",name:"Tøm vand fra forfilter",h:0,m:1},
+    {key:"belt",name:"Drivrem",h:0,m:1},
+    {key:"seaWaterFilter",name:"Søvandsfilter",h:0,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:0,m:1}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Volvo Penta D1-13",alt:"",qty:1,linkedTo:["oil"],note:""},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Volvo Penta D1-13",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Volvo Penta D1-13",alt:"",qty:1,linkedTo:["impellerCheck"],note:""},
+    {key:"sailDriveOil",name:"Sejldrevsolie 130S",oem:"PLACEHOLDER",alt:"ATF Dexron II/III",qty:1,linkedTo:["gearOil"],note:""}
+  ],
+  manual:{ notes:["Første olieskift efter 20-50 timer","Oliestand gear/sejldrev tjekkes hver 14. dag","Kølevæske hvert 2. år"], source:"Volvo Penta D1 instruktionsbog" }
+},
+"D1-20": {
+  brand:"Volvo Penta", model:"D1-20", hoursPerMonth:15,
+  fluids:{ Motorolie:"VDS-3 (eller VDS-2 + API CH-4/CI-4), SAE 15W/40 eller 20W/50", Drevolie:"ATF (Dexron II/III) i gear og sejldrev 130S", Kølevæske:"40 % Volvo Penta Coolant, 60 % rent vand" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:200,m:12},
+    {key:"gearOil",name:"Gear-/sejldrevsolie",h:200,m:12},
+    {key:"anoder",name:"Anoder og korrosionsbeskyttelse",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter og forfilter",h:500,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:500,m:12},
+    {key:"coolant",name:"Kølevæske og varmeveksler",h:500,m:24},
+    {key:"airFilter",name:"Luftfilter",h:500,m:24},
+    {key:"foldProp",name:"Rens foldepropel",h:0,m:12},
+    {key:"manchet",name:"Gummimanchet sejldrev",h:0,m:12},
+    {key:"waterSep",name:"Tøm vand fra forfilter",h:0,m:1},
+    {key:"belt",name:"Drivrem",h:0,m:1},
+    {key:"seaWaterFilter",name:"Søvandsfilter",h:0,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:0,m:1}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Volvo Penta D1-20",alt:"",qty:1,linkedTo:["oil"],note:""},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Volvo Penta D1-20",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Volvo Penta D1-20",alt:"",qty:1,linkedTo:["impellerCheck"],note:""},
+    {key:"sailDriveOil",name:"Sejldrevsolie 130S",oem:"PLACEHOLDER",alt:"ATF Dexron II/III",qty:1,linkedTo:["gearOil"],note:""}
+  ],
+  manual:{ notes:["Første olieskift efter 20-50 timer","Oliestand gear/sejldrev tjekkes hver 14. dag","Kølevæske hvert 2. år"], source:"Volvo Penta D1 instruktionsbog" }
+},
+"D1-30": {
+  brand:"Volvo Penta", model:"D1-30", hoursPerMonth:15,
+  fluids:{ Motorolie:"VDS-3 (eller VDS-2 + API CH-4/CI-4), SAE 15W/40 eller 20W/50", Drevolie:"ATF (Dexron II/III) i gear og sejldrev 130S", Kølevæske:"40 % Volvo Penta Coolant, 60 % rent vand" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:200,m:12},
+    {key:"gearOil",name:"Gear-/sejldrevsolie",h:200,m:12},
+    {key:"anoder",name:"Anoder og korrosionsbeskyttelse",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter og forfilter",h:500,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:500,m:12},
+    {key:"coolant",name:"Kølevæske og varmeveksler",h:500,m:24},
+    {key:"airFilter",name:"Luftfilter",h:500,m:24},
+    {key:"foldProp",name:"Rens foldepropel",h:0,m:12},
+    {key:"manchet",name:"Gummimanchet sejldrev",h:0,m:12},
+    {key:"waterSep",name:"Tøm vand fra forfilter",h:0,m:1},
+    {key:"belt",name:"Drivrem",h:0,m:1},
+    {key:"seaWaterFilter",name:"Søvandsfilter",h:0,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:0,m:1}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Volvo Penta D1-30",alt:"",qty:1,linkedTo:["oil"],note:""},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Volvo Penta D1-30",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Volvo Penta D1-30",alt:"",qty:1,linkedTo:["impellerCheck"],note:""},
+    {key:"sailDriveOil",name:"Sejldrevsolie 130S",oem:"PLACEHOLDER",alt:"ATF Dexron II/III",qty:1,linkedTo:["gearOil"],note:""}
+  ],
+  manual:{ notes:["Første olieskift efter 20-50 timer","Oliestand gear/sejldrev tjekkes hver 14. dag","Kølevæske hvert 2. år"], source:"Volvo Penta D1 instruktionsbog" }
+},
+"D2-40": {
+  brand:"Volvo Penta", model:"D2-40", hoursPerMonth:15,
+  fluids:{ Motorolie:"VDS-3 (eller VDS-2 + API CH-4/CI-4), SAE 15W/40 eller 20W/50", Drevolie:"ATF (Dexron II/III) i gear og sejldrev 130S", Kølevæske:"40 % Volvo Penta Coolant, 60 % rent vand" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:500,m:12},
+    {key:"gearOil",name:"Gear-/sejldrevsolie",h:200,m:12},
+    {key:"anoder",name:"Anoder og korrosionsbeskyttelse",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter og forfilter",h:500,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:500,m:12},
+    {key:"coolant",name:"Kølevæske og varmeveksler",h:500,m:24},
+    {key:"airFilter",name:"Luftfilter",h:500,m:24},
+    {key:"foldProp",name:"Rens foldepropel",h:0,m:12},
+    {key:"manchet",name:"Gummimanchet sejldrev",h:0,m:12},
+    {key:"waterSep",name:"Tøm vand fra forfilter",h:0,m:1},
+    {key:"belt",name:"Drivrem",h:0,m:1},
+    {key:"seaWaterFilter",name:"Søvandsfilter",h:0,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:0,m:1}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Volvo Penta D2-40",alt:"",qty:1,linkedTo:["oil"],note:""},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Volvo Penta D2-40",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Volvo Penta D2-40",alt:"",qty:1,linkedTo:["impellerCheck"],note:""},
+    {key:"sailDriveOil",name:"Sejldrevsolie 130S",oem:"PLACEHOLDER",alt:"ATF Dexron II/III",qty:1,linkedTo:["gearOil"],note:""}
+  ],
+  manual:{ notes:["Første olieskift efter 20-50 timer","Oliestand gear/sejldrev tjekkes hver 14. dag","Kølevæske hvert 2. år"], source:"Volvo Penta D2 instruktionsbog" }
+},
+"MD2020D": {
+  brand:"Volvo Penta", model:"MD2020D", hoursPerMonth:15,
+  fluids:{
+    Motorolie:"SAE 15W-40 marine diesel (API CD el. højere)",
+    Drevolie:"Sejldrev: Volvo Penta gearolie el. ATF Dexron II/III. MS-gear: SAE 15W/40",
+    Kølevæske:"Volvo Penta Coolant blandet 40/60 med rent vand"
+  },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:100,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter (for + fin)",h:200,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:200,m:12},
+    {key:"impellerChange",name:"Skift impeller",h:200,m:12},
+    {key:"waterSep",name:"Tøm vandudskiller",h:50,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:50,m:1},
+    {key:"belt",name:"Drivrem (kontrol/spænding)",h:50,m:1},
+    {key:"sailDriveOil",name:"Sejldrevsolie",h:100,m:12},
+    {key:"gearOil",name:"Gearolie (MS)",h:100,m:12},
+    {key:"coolant",name:"Kølevæske",h:0,m:24},
+    {key:"airFilter",name:"Rens luftfilter",h:200,m:12},
+    {key:"anoder",name:"Anoder",h:0,m:12}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – MD2020 (861473 ref.)",alt:"",qty:1,linkedTo:["oil"],note:"Verificér mod dit serienummer"},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – MD2020 (861477 ref.)",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller kit",oem:"PLACEHOLDER – MD2020",alt:"",qty:1,linkedTo:["impellerChange","impellerCheck"],note:"Kontroller pumpetype – rund dæksel = anden impeller"},
+    {key:"sailDriveOil",name:"Sejldrevsolie",oem:"PLACEHOLDER",alt:"ATF Dexron II/III",qty:1,linkedTo:["sailDriveOil"],note:""},
+    {key:"gearOil",name:"Gearolie MS",oem:"PLACEHOLDER",alt:"SAE 15W/40",qty:1,linkedTo:["gearOil"],note:""}
+  ],
+  manual:{
+    notes:[
+      "Olieskift hver 100 timer eller årligt",
+      "Impeller: tjek og skift hvert 200. time eller årligt",
+      "Brændstoffilter: forfilter + finfilter hvert 200. time",
+      "Kølevæske hvert 2. år",
+      "Kontroller remspænding – ca. 10 mm udbøjning ved tommelfingertryk"
+    ],
+    source:"Volvo Penta MD2010/2020/2030/2040 Instruktionsbog + Workshop Manual. Verificér altid mod din specifikke manual."
+  }
+}
+};
+
+// Build select options
+const MODEL_OPTIONS = Object.keys(ENGINES).map(m => {
+  const e = ENGINES[m];
+  return {group: e.brand, model: m, key: m};
+});
+
+// ============ STATE ============
+const mkTasks = (engineKey, currentHours) => {
+  return ENGINES[engineKey].intervals.map((x, i) => ({
+    id: i + 1, n: x.name, h: x.h, m: x.m, dd: 0, key: x.key,
+    lh: currentHours, ld: iso(new Date())
+  }));
+};
+
+let S = {
+  hours: 0, hpm: 15, model: "3YM20",
+  engine: { Motor: "Yanmar 3YM20", ...ENGINES["3YM20"].fluids },
+  tasks: mkTasks("3YM20", 0),
+  log: [], chk: {}, shopping: {}
+};
+
+// Migration
+try {
+  const raw = localStorage.getItem(K) || localStorage.getItem(KOLD);
+  if (raw) {
+    const old = JSON.parse(raw);
+    // Basic migration: keep hours, log, chk
+    S.hours = old.hours || 0;
+    S.hpm = old.hpm || 15;
+    S.log = old.log || [];
+    S.chk = old.chk || {};
+    // If old model exists in new ENGINES, migrate tasks
+    if (old.model && ENGINES[old.model]) {
+      S.model = old.model;
+      S.engine = { Motor: ENGINES[old.model].brand + " " + old.model, ...ENGINES[old.model].fluids };
+      S.tasks = mkTasks(old.model, S.hours);
+    }
+  }
+} catch(e){}
+
+const save = () => { try { localStorage.setItem(K, JSON.stringify(S)); } catch(e){} };
+
+let tab = "hjem";
+
+// ============ DUE CALCULATION ============
+function due(t) {
+  const dd = new Date(t.ld);
+  if (t.dd) dd.setDate(dd.getDate() + t.dd); else dd.setMonth(dd.getMonth() + t.m);
+  let hl = t.h ? t.lh + t.h - S.hours : null;
+  const dl = Math.round((dd - Date.now()) / DAY);
+  let est = dd;
+  if (hl !== null) {
+    const e = new Date(Date.now() + Math.max(hl, 0) / S.hpm * 30 * DAY);
+    if (e < est) est = e;
+  }
+  const days = Math.round((est - Date.now()) / DAY);
+  const st = (hl !== null && hl <= 0) || dl <= 0 ? "bad" : ((hl !== null && hl <= t.h * 0.1) || dl <= (t.dd ? 3 : 30) ? "warn" : "ok");
+  return { hl, dl, est, days, st };
+}
+
+const txt = t => {
+  const u = due(t); const p = [];
+  if (u.hl !== null) p.push(u.hl <= 0 ? `${-u.hl} t over` : `om ${u.hl} t`);
+  p.push(u.dl <= 0 ? `${-u.dl} dage over` : `om ${u.dl} dage`);
+  return p.join(" eller ");
+};
+
+function cal(t) {
+  const u = due(t), d = iso(u.est).replace(/-/g, ""), e = iso(new Date(+u.est + DAY)).replace(/-/g, "");
+  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent("Motor: " + t.n) + "&dates=" + d + "/" + e + "&details=" + encodeURIComponent("Motortimer ved forfald: " + (t.h ? t.lh + t.h : "-") + ". Fra Motorlog.");
+}
+
+// ============ RENDER HELPERS ============
+function card(t) {
+  const u = due(t);
+  return `<div class="card ${u.st}"><b>${t.n}</b><span class="tag">${txt(t)}</span>
+<div class="mut">Sidst: ${fmt(t.ld)}, ${t.lh} t · Hver ${t.h ? t.h + " t eller " : ""}${t.dd ? t.dd + " dage" : t.m + " mdr"}</div>
+<div class="row" style="margin-top:8px"><button class="p" data-done="${t.id}">Markér udført</button><button data-edit="${t.id}">Ret</button><a class="cal" href="${cal(t)}" target="_blank" rel="noopener">Kalender</a></div></div>`;
+}
+
+function partRow(p, idx) {
+  const checked = S.shopping[p.key] ? "checked" : "";
+  return `<div class="part"><input type="checkbox" data-shop="${p.key}" ${checked}><div class="info"><b>${p.name}</b><div class="mut">OEM: ${p.oem}${p.alt ? " · Alt: " + p.alt : ""}</div>${p.note ? '<div class="mut">' + p.note + '</div>' : ""}</div></div>`;
+}
+
+// ============ VIEWS ============
+function view() {
+  const v = document.getElementById("v");
+  const dg = String(S.hours).padStart(4, "0").split("").map(c => `<span>${c}</span>`).join("");
+  const L = [...S.tasks].sort((a, b) => due(a).days - due(b).days);
+  const empty = `<p class="mut">Ingen opgaver endnu.</p>`;
+  const eng = ENGINES[S.model] || ENGINES["3YM20"];
+
+  if (tab == "hjem") v.innerHTML = `<div class="meter">${S.engine.Motor || "Motor"}<div class="digits">${dg}</div>
+<div class="row"><button data-hrs>Opdatér timer</button><button data-note>Ny note</button></div></div>
+<h2>Næste opgaver</h2>${L.slice(0, 3).map(card).join("") || empty}
+<h2>Daglig tjekliste</h2><div class="chk">${["Lækager: olie, brændstof, kølevæske", "Niveau: motorolie, geartolie, kølevæske", "Vandudskiller uden vand", "Remspænding og alarmlamper", "Søventil åben, gear i neutral"].map((c, i) => `<label><input type="checkbox" data-c="${i}" ${S.chk[i] ? "checked" : ""}>${c}</label>`).join("")}</div>`;
+
+  else if (tab == "opg") v.innerHTML = `<h1>Opgaver</h1>${L.map(card).join("") || empty}<button data-add style="width:100%">Ny opgave</button><p class="mut">Forfald beregnes af timer eller tid, det der kommer først. Timer omregnes til dato med ${S.hpm} timer pr. måned.</p><label class="f">Timer pr. måned</label><input type="number" inputmode="numeric" value="${S.hpm}" data-hpm>`;
+
+  else if (tab == "log") v.innerHTML = `<h1>Logbog</h1><button class="p" data-note style="width:100%;margin-bottom:12px">Ny note</button>${S.log.map(l => `<div class="card ok"><b>${l.t}</b><span class="mut">${fmt(l.d)} · ${l.h} t</span><div>${l.x || ""}</div></div>`).join("") || "<p class=mut>Ingen poster endnu.</p>"}`;
+
+  else if (tab == "dele") {
+    const checked = Object.keys(S.shopping).filter(k => S.shopping[k]);
+    const listText = checked.map(k => { const p = eng.parts.find(x => x.key === k); return p ? `- ${p.name}: ${p.oem}` : null; }).filter(Boolean).join("\n");
+    v.innerHTML = `<h1>Reservedele</h1><p class="mut">${eng.brand} ${eng.model} · Afkryds og del indkøbslisten.</p>
+${eng.parts.map(p => partRow(p)).join("")}
+<div class="row" style="margin-top:12px">
+<button data-shop-share style="flex:1">Del indkøbsliste</button>
+<button data-shop-clear>Ryd</button></div>
+${checked.length ? '<p class="mut" style="margin-top:8px">' + checked.length + ' dele markeret</p>' : ''}`;
+  }
+
+  else if (tab == "mot") v.innerHTML = `<h1>Motor</h1><label class="f">Motormodel</label><select data-m aria-label="Motormodel"><option value="">Vælg motor</option>${MODEL_OPTIONS.map(o => `<option ${S.model === o.key ? "selected" : ""}>${o.key}</option>`).join("")}</select>
+<p class="mut">Intervaller og vejledning nedenfor er uddrag. Verificér altid mod din egen manual.</p>
+<div class="manual-box"><h3>Manualuddrag – ${eng.brand} ${eng.model}</h3><ul>${eng.manual.notes.map(n => '<li>' + n + '</li>').join("")}</ul><div class="src">Kilde: ${eng.manual.source}</div></div>
+<h2>Væsker og specifikationer</h2>
+<dl>${Object.entries(S.engine).map(([k, x]) => `<dt>${k}</dt><dd><input value="${x}" data-e="${k}" aria-label="${k}"></dd>`).join("")}</dl>`;
+
+  document.getElementById("nav").innerHTML = [["hjem", "Hjem"], ["opg", "Opgaver"], ["log", "Logbog"], ["dele", "Dele"], ["mot", "Motor"]].map(([k, n]) => `<button data-t="${k}" ${tab == k ? 'aria-current="true"' : ""}>${n}</button>`).join("");
+}
+
+// ============ DIALOGS ============
+function dlg(h) {
+  const d = document.getElementById("dlg");
+  d.innerHTML = h;
+  d.showModal();
+  d.querySelector("#x").onclick = () => d.close();
+  return d;
+}
+const BT = `<div class="row" style="margin-top:12px"><button id="x">Annullér</button><button class="p" id="ok" style="flex:1">Gem</button></div>`;
+
+function taskForm(t) {
+  const n = !t; t = t || { n: "", h: 0, m: 12, dd: 0, key: "custom_" + Date.now() };
+  const d = dlg(`<h2 style="margin-top:0">${n ? "Ny opgave" : "Ret opgave"}</h2><label class="f">Navn</label><input id="a" value="${t.n}"><label class="f">Interval i timer (0 = ingen)</label><input id="b" type="number" inputmode="numeric" value="${t.h}"><label class="f">Interval i måneder</label><input id="c" type="number" inputmode="numeric" value="${t.m}"><label class="f">Eller interval i dage (0 = bruger måneder)</label><input id="e" type="number" inputmode="numeric" value="${t.dd || 0}">${BT}${n ? "" : '<button id="del" style="width:100%;margin-top:8px">Slet opgave</button>'}`);
+  d.querySelector("#ok").onclick = () => {
+    const o = { n: d.querySelector("#a").value || "Opgave", h: +d.querySelector("#b").value || 0, m: +d.querySelector("#c").value || 0, dd: +d.querySelector("#e").value || 0 };
+    if (n) S.tasks.push({ id: Date.now(), ...o, key: t.key, lh: S.hours, ld: iso(new Date()) });
+    else Object.assign(t, o);
+    save(); d.close(); view();
+  };
+  const dl = d.querySelector("#del");
+  if (dl) dl.onclick = () => { S.tasks = S.tasks.filter(x => x !== t); save(); d.close(); view(); };
+}
+
+// ============ EVENT HANDLERS ============
+document.addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+
+  if (b.dataset.t) { tab = b.dataset.t; view(); return; }
+
+  if (b.hasAttribute("data-add")) taskForm();
+
+  if (b.dataset.edit) taskForm(S.tasks.find(x => x.id == b.dataset.edit));
+
+  if (b.dataset.done) {
+    const t = S.tasks.find(x => x.id == b.dataset.done);
+    const d = dlg(`<h2 style="margin-top:0">${t.n} udført</h2><label class="f">Motortimer</label><input id="fh" type="number" inputmode="numeric" value="${S.hours}"><label class="f">Dato</label><input id="fd" type="date" value="${iso(new Date())}"><label class="f">Note</label><textarea id="fx" rows="3" placeholder="Fx olietype, mængde"></textarea>${BT}`);
+    d.querySelector("#ok").onclick = () => {
+      const h = +d.querySelector("#fh").value, dt = d.querySelector("#fd").value;
+      t.lh = h; t.ld = dt; S.hours = Math.max(S.hours, h);
+      S.log.unshift({ d: dt, h, t: t.n, x: d.querySelector("#fx").value });
+      save(); d.close(); view();
+    };
+  }
+
+  if (b.hasAttribute("data-hrs")) {
+    const d = dlg(`<h2 style="margin-top:0">Motortimer</h2><input id="fh" type="number" inputmode="numeric" value="${S.hours}">${BT}`);
+    d.querySelector("#ok").onclick = () => { S.hours = +d.querySelector("#fh").value; save(); d.close(); view(); };
+  }
+
+  if (b.hasAttribute("data-note")) {
+    const d = dlg(`<h2 style="margin-top:0">Ny note</h2><label class="f">Titel</label><input id="ft"><label class="f">Note</label><textarea id="fx" rows="4"></textarea>${BT}`);
+    d.querySelector("#ok").onclick = () => {
+      S.log.unshift({ d: iso(new Date()), h: S.hours, t: d.querySelector("#ft").value || "Note", x: d.querySelector("#fx").value });
+      save(); d.close(); tab = "log"; view();
+    };
+  }
+
+  if (b.hasAttribute("data-shop-share")) {
+    const eng = ENGINES[S.model];
+    const checked = Object.keys(S.shopping).filter(k => S.shopping[k]);
+    if (!checked.length) { alert("Markér mindst én del først."); return; }
+    const txt = checked.map(k => { const p = eng.parts.find(x => x.key === k); return p ? `${p.name}: ${p.oem}` : null; }).filter(Boolean).join("\n");
+    const full = `Reservedele – ${eng.brand} ${eng.model}\n\n${txt}\n\nFra Motorlog`;
+    if (navigator.share) navigator.share({ title: "Reservedele", text: full });
+    else { navigator.clipboard.writeText(full).then(() => alert("Kopieret til udklipsholder")); }
+  }
+
+  if (b.hasAttribute("data-shop-clear")) {
+    S.shopping = {}; save(); view();
+  }
+});
+
+document.addEventListener("change", e => {
+  const t = e.target;
+
+  if (t.dataset.c !== undefined) { S.chk[t.dataset.c] = t.checked; save(); }
+
+  if (t.dataset.e) { S.engine[t.dataset.e] = t.value; save(); }
+
+  if (t.hasAttribute("data-hpm")) { S.hpm = Math.max(1, +t.value || 15); save(); view(); }
+
+  if (t.dataset.shop) { S.shopping[t.dataset.shop] = t.checked; save(); view(); }
+
+  if (t.hasAttribute("data-m")) {
+    const l = t.value;
+    if (!l) { view(); return; }
+    const d = dlg(`<h2 style="margin-top:0">Skift til ${l}?</h2><p>Opgaver og motorfelter erstattes af standardplanen for ${l}. Logbogen beholdes. Alle opgaver starter i dag.</p>${BT}`);
+    d.querySelector("#x").onclick = () => { d.close(); view(); };
+    d.querySelector("#ok").onclick = () => {
+      S.model = l;
+      S.engine = { Motor: ENGINES[l].brand + " " + l, ...ENGINES[l].fluids };
+      S.tasks = mkTasks(l, S.hours);
+      save(); d.close(); view();
+    };
+  }
+});
+
+view();
+</script></body></html>
