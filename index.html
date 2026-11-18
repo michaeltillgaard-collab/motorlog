@@ -324,4 +324,245 @@ const ENGINES = {
     {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – MD2020 (861473 ref.)",alt:"",qty:1,linkedTo:["oil"],note:"Verificér mod dit serienummer"},
     {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – MD2020 (861477 ref.)",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
     {key:"impeller",name:"Impeller kit",oem:"PLACEHOLDER – MD2020",alt:"",qty:1,linkedTo:["impellerChange","impellerCheck"],note:"Kontroller pumpetype – rund dæksel = anden impeller"},
-    {key:"sailDriveOil",name:"Sejldrevsolie",oem:"PL
+    {key:"sailDriveOil",name:"Sejldrevsolie",oem:"PLACEHOLDER",alt:"ATF Dexron II/III",qty:1,linkedTo:["sailDriveOil"],note:""},
+    {key:"gearOil",name:"Gearolie MS",oem:"PLACEHOLDER",alt:"SAE 15W/40",qty:1,linkedTo:["gearOil"],note:""}
+  ],
+  manual:{
+    notes:[
+      "Olieskift hver 100 timer eller årligt",
+      "Impeller: tjek og skift hvert 200. time eller årligt",
+      "Brændstoffilter: forfilter + finfilter hvert 200. time",
+      "Kølevæske hvert 2. år",
+      "Kontroller remspænding – ca. 10 mm udbøjning ved tommelfingertryk"
+    ],
+    source:"Volvo Penta MD2010/2020/2030/2040 Instruktionsbog + Workshop Manual. Verificér altid mod din specifikke manual."
+  }
+}
+};
+
+const MODEL_OPTIONS = Object.keys(ENGINES).map(m => ({group: ENGINES[m].brand, model: m, key: m}));
+
+const mkTasks = (engineKey, currentHours) => {
+  return ENGINES[engineKey].intervals.map((x, i) => ({
+    id: i + 1, n: x.name, h: x.h, m: x.m, dd: 0, key: x.key,
+    lh: currentHours, ld: iso(new Date())
+  }));
+};
+
+let S = {
+  hours: 0, hpm: 15, model: "3YM20",
+  engine: { Motor: "Yanmar 3YM20", ...ENGINES["3YM20"].fluids },
+  tasks: mkTasks("3YM20", 0),
+  log: [], chk: {}, shopping: {}
+};
+
+try {
+  const raw = localStorage.getItem(K) || localStorage.getItem(KOLD);
+  if (raw) {
+    const old = JSON.parse(raw);
+    S.hours = old.hours || 0;
+    S.hpm = old.hpm || 15;
+    S.log = old.log || [];
+    S.chk = old.chk || {};
+    if (old.model && ENGINES[old.model]) {
+      S.model = old.model;
+      S.engine = { Motor: ENGINES[old.model].brand + " " + old.model, ...ENGINES[old.model].fluids };
+      S.tasks = mkTasks(old.model, S.hours);
+    }
+  }
+} catch(e){}
+
+const save = () => { try { localStorage.setItem(K, JSON.stringify(S)); } catch(e){} };
+
+let tab = "hjem";
+
+function due(t) {
+  const dd = new Date(t.ld);
+  if (t.dd) dd.setDate(dd.getDate() + t.dd); else dd.setMonth(dd.getMonth() + t.m);
+  let hl = t.h ? t.lh + t.h - S.hours : null;
+  const dl = Math.round((dd - Date.now()) / DAY);
+  let est = dd;
+  if (hl !== null) {
+    const e = new Date(Date.now() + Math.max(hl, 0) / S.hpm * 30 * DAY);
+    if (e < est) est = e;
+  }
+  const days = Math.round((est - Date.now()) / DAY);
+  const st = (hl !== null && hl <= 0) || dl <= 0 ? "bad" : ((hl !== null && hl <= t.h * 0.1) || dl <= (t.dd ? 3 : 30) ? "warn" : "ok");
+  return { hl, dl, est, days, st };
+}
+
+const txt = t => {
+  const u = due(t); const p = [];
+  if (u.hl !== null) p.push(u.hl <= 0 ? `${-u.hl} t over` : `om ${u.hl} t`);
+  p.push(u.dl <= 0 ? `${-u.dl} dage over` : `om ${u.dl} dage`);
+  return p.join(" eller ");
+};
+
+function cal(t) {
+  const u = due(t), d = iso(u.est).replace(/-/g, ""), e = iso(new Date(+u.est + DAY)).replace(/-/g, "");
+  return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent("Motor: " + t.n) + "&dates=" + d + "/" + e + "&details=" + encodeURIComponent("Motortimer ved forfald: " + (t.h ? t.lh + t.h : "-") + ". Fra Motorlog.");
+}
+
+function card(t) {
+  const u = due(t);
+  return `<div class="card ${u.st}"><b>${t.n}</b><span class="tag">${txt(t)}</span>
+<div class="mut">Sidst: ${fmt(t.ld)}, ${t.lh} t · Hver ${t.h ? t.h + " t eller " : ""}${t.dd ? t.dd + " dage" : t.m + " mdr"}</div>
+<div class="row" style="margin-top:8px"><button class="p" data-done="${t.id}">Markér udført</button><button data-edit="${t.id}">Ret</button><a class="cal" href="${cal(t)}" target="_blank" rel="noopener">Kalender</a></div></div>`;
+}
+
+function partRow(p) {
+  const checked = S.shopping[p.key] ? "checked" : "";
+  return `<div class="part"><input type="checkbox" data-shop="${p.key}" ${checked}><div class="info"><b>${p.name}</b><div class="mut">OEM: ${p.oem}${p.alt ? " · Alt: " + p.alt : ""}</div>${p.note ? '<div class="mut">' + p.note + '</div>' : ""}</div></div>`;
+}
+
+function view() {
+  const v = document.getElementById("v");
+  const dg = String(S.hours).padStart(4, "0").split("").map(c => `<span>${c}</span>`).join("");
+  const L = [...S.tasks].sort((a, b) => due(a).days - due(b).days);
+  const empty = `<p class="mut">Ingen opgaver endnu.</p>`;
+  const eng = ENGINES[S.model] || ENGINES["3YM20"];
+
+  if (tab == "hjem") v.innerHTML = `<div class="meter">${S.engine.Motor || "Motor"}<div class="digits">${dg}</div>
+<div class="row"><button data-hrs>Opdatér timer</button><button data-note>Ny note</button></div></div>
+<h2>Næste opgaver</h2>${L.slice(0, 3).map(card).join("") || empty}
+<h2>Daglig tjekliste</h2><div class="chk">${["Lækager: olie, brændstof, kølevæske", "Niveau: motorolie, geartolie, kølevæske", "Vandudskiller uden vand", "Remspænding og alarmlamper", "Søventil åben, gear i neutral"].map((c, i) => `<label><input type="checkbox" data-c="${i}" ${S.chk[i] ? "checked" : ""}>${c}</label>`).join("")}</div>`;
+
+  else if (tab == "opg") v.innerHTML = `<h1>Opgaver</h1>${L.map(card).join("") || empty}<button data-add style="width:100%">Ny opgave</button><p class="mut">Forfald beregnes af timer eller tid, det der kommer først. Timer omregnes til dato med ${S.hpm} timer pr. måned.</p><label class="f">Timer pr. måned</label><input type="number" inputmode="numeric" value="${S.hpm}" data-hpm>`;
+
+  else if (tab == "log") v.innerHTML = `<h1>Logbog</h1><button class="p" data-note style="width:100%;margin-bottom:12px">Ny note</button>${S.log.map(l => `<div class="card ok"><b>${l.t}</b><span class="mut">${fmt(l.d)} · ${l.h} t</span><div>${l.x || ""}</div></div>`).join("") || "<p class=mut>Ingen poster endnu.</p>"}`;
+
+  else if (tab == "dele") {
+    const checked = Object.keys(S.shopping).filter(k => S.shopping[k]);
+    v.innerHTML = `<h1>Reservedele</h1><p class="mut">${eng.brand} ${eng.model} · Afkryds og del indkøbslisten.</p>
+${eng.parts.map(p => partRow(p)).join("")}
+<div class="row" style="margin-top:12px">
+<button data-shop-share style="flex:1">Del indkøbsliste</button>
+<button data-shop-clear>Ryd</button></div>
+${checked.length ? '<p class="mut" style="margin-top:8px">' + checked.length + ' dele markeret</p>' : ''}`;
+  }
+
+  else if (tab == "mot") v.innerHTML = `<h1>Motor</h1><label class="f">Motormodel</label><select data-m aria-label="Motormodel"><option value="">Vælg motor</option>${MODEL_OPTIONS.map(o => `<option ${S.model === o.key ? "selected" : ""}>${o.key}</option>`).join("")}</select>
+<p class="mut">Intervaller og vejledning nedenfor er uddrag. Verificér altid mod din egen manual.</p>
+<div class="manual-box"><h3>Manualuddrag – ${eng.brand} ${eng.model}</h3><ul>${eng.manual.notes.map(n => '<li>' + n + '</li>').join("")}</ul><div class="src">Kilde: ${eng.manual.source}</div></div>
+<h2>Væsker og specifikationer</h2>
+<dl>${Object.entries(S.engine).map(([k, x]) => `<dt>${k}</dt><dd><input value="${x}" data-e="${k}" aria-label="${k}"></dd>`).join("")}</dl>
+<div class="row" style="margin-top:16px">
+<button data-export style="flex:1">Eksportér data</button>
+<button data-import style="flex:1">Importér data</button></div>`;
+
+  document.getElementById("nav").innerHTML = [["hjem", "Hjem"], ["opg", "Opgaver"], ["log", "Logbog"], ["dele", "Dele"], ["mot", "Motor"]].map(([k, n]) => `<button data-t="${k}" ${tab == k ? 'aria-current="true"' : ""}>${n}</button>`).join("");
+}
+
+function dlg(h) {
+  const d = document.getElementById("dlg");
+  d.innerHTML = h;
+  d.showModal();
+  d.querySelector("#x").onclick = () => d.close();
+  return d;
+}
+const BT = `<div class="row" style="margin-top:12px"><button id="x">Annullér</button><button class="p" id="ok" style="flex:1">Gem</button></div>`;
+
+function taskForm(t) {
+  const n = !t; t = t || { n: "", h: 0, m: 12, dd: 0, key: "custom_" + Date.now() };
+  const d = dlg(`<h2 style="margin-top:0">${n ? "Ny opgave" : "Ret opgave"}</h2><label class="f">Navn</label><input id="a" value="${t.n}"><label class="f">Interval i timer (0 = ingen)</label><input id="b" type="number" inputmode="numeric" value="${t.h}"><label class="f">Interval i måneder</label><input id="c" type="number" inputmode="numeric" value="${t.m}"><label class="f">Eller interval i dage (0 = bruger måneder)</label><input id="e" type="number" inputmode="numeric" value="${t.dd || 0}">${BT}${n ? "" : '<button id="del" style="width:100%;margin-top:8px">Slet opgave</button>'}`);
+  d.querySelector("#ok").onclick = () => {
+    const o = { n: d.querySelector("#a").value || "Opgave", h: +d.querySelector("#b").value || 0, m: +d.querySelector("#c").value || 0, dd: +d.querySelector("#e").value || 0 };
+    if (n) S.tasks.push({ id: Date.now(), ...o, key: t.key, lh: S.hours, ld: iso(new Date()) });
+    else Object.assign(t, o);
+    save(); d.close(); view();
+  };
+  const dl = d.querySelector("#del");
+  if (dl) dl.onclick = () => { S.tasks = S.tasks.filter(x => x !== t); save(); d.close(); view(); };
+}
+
+document.addEventListener("click", e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+
+  if (b.dataset.t) { tab = b.dataset.t; view(); return; }
+
+  if (b.hasAttribute("data-add")) taskForm();
+
+  if (b.dataset.edit) taskForm(S.tasks.find(x => x.id == b.dataset.edit));
+
+  if (b.dataset.done) {
+    const t = S.tasks.find(x => x.id == b.dataset.done);
+    const d = dlg(`<h2 style="margin-top:0">${t.n} udført</h2><label class="f">Motortimer</label><input id="fh" type="number" inputmode="numeric" value="${S.hours}"><label class="f">Dato</label><input id="fd" type="date" value="${iso(new Date())}"><label class="f">Note</label><textarea id="fx" rows="3" placeholder="Fx olietype, mængde"></textarea>${BT}`);
+    d.querySelector("#ok").onclick = () => {
+      const h = +d.querySelector("#fh").value, dt = d.querySelector("#fd").value;
+      t.lh = h; t.ld = dt; S.hours = Math.max(S.hours, h);
+      S.log.unshift({ d: dt, h, t: t.n, x: d.querySelector("#fx").value });
+      save(); d.close(); view();
+    };
+  }
+
+  if (b.hasAttribute("data-hrs")) {
+    const d = dlg(`<h2 style="margin-top:0">Motortimer</h2><input id="fh" type="number" inputmode="numeric" value="${S.hours}">${BT}`);
+    d.querySelector("#ok").onclick = () => { S.hours = +d.querySelector("#fh").value; save(); d.close(); view(); };
+  }
+
+  if (b.hasAttribute("data-note")) {
+    const d = dlg(`<h2 style="margin-top:0">Ny note</h2><label class="f">Titel</label><input id="ft"><label class="f">Note</label><textarea id="fx" rows="4"></textarea>${BT}`);
+    d.querySelector("#ok").onclick = () => {
+      S.log.unshift({ d: iso(new Date()), h: S.hours, t: d.querySelector("#ft").value || "Note", x: d.querySelector("#fx").value });
+      save(); d.close(); tab = "log"; view();
+    };
+  }
+
+  if (b.hasAttribute("data-shop-share")) {
+    const eng = ENGINES[S.model];
+    const checked = Object.keys(S.shopping).filter(k => S.shopping[k]);
+    if (!checked.length) { alert("Markér mindst én del først."); return; }
+    const txt = checked.map(k => { const p = eng.parts.find(x => x.key === k); return p ? `${p.name}: ${p.oem}` : null; }).filter(Boolean).join("\n");
+    const full = `Reservedele – ${eng.brand} ${eng.model}\n\n${txt}\n\nFra Motorlog`;
+    if (navigator.share) navigator.share({ title: "Reservedele", text: full });
+    else navigator.clipboard.writeText(full).then(() => alert("Kopieret til udklipsholder"));
+  }
+
+  if (b.hasAttribute("data-shop-clear")) { S.shopping = {}; save(); view(); }
+
+  if (b.hasAttribute("data-export")) {
+    const blob = new Blob([JSON.stringify(S, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "motorlog-backup-" + iso(new Date()) + ".json";
+    a.click();
+  }
+
+  if (b.hasAttribute("data-import")) {
+    const inp = document.createElement("input");
+    inp.type = "file"; inp.accept = "application/json";
+    inp.onchange = () => {
+      const f = inp.files[0]; if (!f) return;
+      const r = new FileReader();
+      r.onload = () => { try { S = JSON.parse(r.result); save(); view(); } catch(err){ alert("Ugyldig fil"); } };
+      r.readAsText(f);
+    };
+    inp.click();
+  }
+});
+
+document.addEventListener("change", e => {
+  const t = e.target;
+
+  if (t.dataset.c !== undefined) { S.chk[t.dataset.c] = t.checked; save(); }
+  if (t.dataset.e) { S.engine[t.dataset.e] = t.value; save(); }
+  if (t.hasAttribute("data-hpm")) { S.hpm = Math.max(1, +t.value || 15); save(); view(); }
+  if (t.dataset.shop) { S.shopping[t.dataset.shop] = t.checked; save(); view(); }
+
+  if (t.hasAttribute("data-m")) {
+    const l = t.value;
+    if (!l) { view(); return; }
+    const d = dlg(`<h2 style="margin-top:0">Skift til ${l}?</h2><p>Opgaver og motorfelter erstattes af standardplanen for ${l}. Logbogen beholdes. Alle opgaver starter i dag.</p>${BT}`);
+    d.querySelector("#x").onclick = () => { d.close(); view(); };
+    d.querySelector("#ok").onclick = () => {
+      S.model = l;
+      S.engine = { Motor: ENGINES[l].brand + " " + l, ...ENGINES[l].fluids };
+      S.tasks = mkTasks(l, S.hours);
+      save(); d.close(); view();
+    };
+  }
+});
+
+view();
+</script></body></html>
