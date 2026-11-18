@@ -91,6 +91,7 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0}dt{color:va
   const manifestURL = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" }));
   document.getElementById("manifest-link").href = manifestURL;
   document.getElementById("apple-icon").href = icon192;
+  document.getElementById("favicon").href = iconURL;
 
   // Inline service worker (minimal, caches the page itself)
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
