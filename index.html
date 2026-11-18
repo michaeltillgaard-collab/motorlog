@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="da"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Motorlog</title>
+<link rel="manifest" id="manifest-link">
+<meta name="theme-color" content="#14232d">
+<link rel="apple-touch-icon" id="apple-icon">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Motorlog">
+<style>
+:root{--bg:#eef1ee;--card:#fff;--ink:#14232d;--mut:#5d6d75;--line:#d5dcd8;--ok:#2f6f5e;--warn:#b7791f;--bad:#c0392b;--hd:#14232d;--hdt:#f2e9c9;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a22;--card:#17262f;--ink:#e8eeea;--mut:#92a3aa;--line:#2a3b45;--ok:#5fb89f;--warn:#e0a94a;--bad:#ef7b6d;--hd:#050c11;--hdt:#f2e9c9}}
+:root[data-theme="dark"]{--bg:#0e1a22;--card:#17262f;--ink:#e8eeea;--mut:#92a3aa;--line:#2a3b45;--ok:#5fb89f;--warn:#e0a94a;--bad:#ef7b6d;--hd:#050c11;--hdt:#f2e9c9}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 "Avenir Next","Segoe UI",system-ui,sans-serif;max-width:480px;margin:auto;padding-bottom:84px}
+h1{font-size:22px;margin:0 0 12px}h2{font-size:17px;margin:20px 0 8px}
+main{padding:16px}
+.meter{background:var(--hd);color:var(--hdt);border-radius:14px;padding:16px}
+.digits{display:flex;gap:4px;margin:8px 0 12px}
+.digits span{flex:0 0 auto;width:34px;height:48px;background:#000;border:1px solid #3a4a52;border-radius:5px;font:700 30px/48px ui-monospace,Menlo,monospace;text-align:center}
+.digits span:last-child{background:#f2e9c9;color:#000}
+.row{display:flex;gap:8px;align-items:center}
+button,input,select,textarea{font:inherit;color:inherit}
+button{min-height:48px;padding:0 16px;border-radius:10px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+button.p{background:var(--ok);border-color:var(--ok);color:#fff;font-weight:600}
+button:focus-visible,input:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+.meter button{background:transparent;color:var(--hdt);border-color:#5b6a72}
+input,textarea,select{width:100%;min-height:48px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card)}
+.card{background:var(--card);border:1px solid var(--line);border-left-width:6px;border-radius:10px;padding:12px;margin-bottom:10px}
+.card.ok{border-left-color:var(--ok)}.card.warn{border-left-color:var(--warn)}.card.bad{border-left-color:var(--bad)}
+.card b{display:block}.mut{color:var(--mut);font-size:14px}
+.tag{font-weight:600}.ok .tag{color:var(--ok)}.warn .tag{color:var(--warn)}.bad .tag{color:var(--bad)}
+.chk label{display:flex;gap:12px;align-items:center;min-height:48px;border-bottom:1px solid var(--line)}
+.chk input{width:26px;height:26px;min-height:0;flex:none}
+nav{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:auto;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;border:0;border-radius:0;min-height:60px;background:none;color:var(--mut);font-size:13px}
+nav button[aria-current="true"]{color:var(--ink);font-weight:700;box-shadow:inset 0 3px var(--ok)}
+dialog{border:0;border-radius:14px;padding:16px;width:calc(100% - 32px);max-width:440px;background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+label.f{display:block;margin:10px 0 4px;font-size:14px;color:var(--mut)}
+a.cal{color:var(--ink);font-size:14px}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0}dt{color:var(--mut)}dd{margin:0}
+.part{display:flex;gap:8px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line)}
+.part input[type=checkbox]{width:24px;height:24px;min-height:0;flex:none;margin-top:2px}
+.part .info{flex:1;min-width:0}
+.part .info b{font-size:15px}
+.part .info .mut{font-size:13px}
+.manual-box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+.manual-box h3{margin:0 0 8px;font-size:15px}
+.manual-box ul{margin:0;padding-left:18px;font-size:14px;line-height:1.6}
+.manual-box .src{font-size:12px;color:var(--mut);margin-top:8px;font-style:italic}
+.install-bar{background:var(--ok);color:#fff;border-radius:10px;padding:12px;margin-bottom:12px;display:flex;gap:12px;align-items:center;font-size:14px}
+.install-bar button{background:#fff;color:var(--ok);border:0;font-weight:600;min-height:40px;padding:0 12px}
+</style></head><body>
+<main id="v"></main>
+<nav id="nav"></nav>
+<dialog id="dlg"></dialog>
+<script>
+// ============ PWA BOOTSTRAP ============
+(function(){
+  // Generate SVG icon as data-URL
+  const iconSVG = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 512 512">
+    <rect width="512" height="512" rx="96" fill="#14232d"/>
+    <text x="256" y="300" font-family="system-ui,sans-serif" font-size="200" font-weight="700" fill="#f2e9c9" text-anchor="middle">ML</text>
+    <rect x="128" y="380" width="256" height="14" rx="7" fill="#2f6f5e"/>
+  </svg>`;
+  const iconURL = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSVG(512));
+  const icon192 = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSVG(192));
+
+  // Inline manifest
+  const manifest = {
+    name: "Motorlog",
+    short_name: "Motorlog",
+    description: "Service- og reservedelslog til bådmotoren",
+    start_url: ".",
+    scope: ".",
+    display: "standalone",
+    orientation: "portrait",
+    background_color: "#eef1ee",
+    theme_color: "#14232d",
+    lang: "da",
+    icons: [
+      { src: iconURL, sizes: "512x512", type: "image/svg+xml", purpose: "any maskable" },
+      { src: icon192, sizes: "192x192", type: "image/svg+xml", purpose: "any maskable" }
+    ]
+  };
+  const manifestURL = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: "application/manifest+json" }));
+  document.getElementById("manifest-link").href = manifestURL;
+  document.getElementById("apple-icon").href = icon192;
+
+  // Inline service worker (minimal, caches the page itself)
+  if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+    const swCode = `
+      const CACHE = "motorlog-v1";
+      self.addEventListener("install", e => { self.skipWaiting(); });
+      self.addEventListener("activate", e => { e.waitUntil(self.clients.claim()); });
+      self.addEventListener("fetch", e => {
+        if (e.request.method !== "GET") return;
+        e.respondWith(
+          caches.match(e.request).then(hit => hit || fetch(e.request).then(res => {
+            if (res.ok) caches.open(CACHE).then(c => c.put(e.request, res.clone()));
+            return res;
+          }).catch(() => hit))
+        );
+      });
+    `;
+    const swURL = URL.createObjectURL(new Blob([swCode], { type: "application/javascript" }));
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register(swURL).catch(err => console.warn("SW kunne ikke registreres:", err));
+    });
+  }
+})();
+
+// ============ MOTORLOG APP ============
+const DAY=864e5,K="motorlog3",KOLD="motorlog2";
+const iso=d=>d.toISOString().slice(0,10),ago=n=>iso(new Date(Date.now()-n*DAY));
+const fmt=s=>new Date(s).toLocaleDateString("da-DK",{day:"numeric",month:"short",year:"numeric"});
+
+const ENGINES = {
+"3YM20": {
+  brand:"Yanmar", model:"3YM20", hoursPerMonth:15,
+  fluids:{ Motorolie:"API CD el. højere, SAE 10W30 / 15W40", Drevolie:"Geart: SAE 20/30 (API CD+). Sejldrev SD20: GL4.5, SAE 90 / 80W90", Kølevæske:"Langtidsholdbar (LLC), 30-60 %" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:200,m:12},
+    {key:"oilFilter",name:"Oliefilter",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter",h:250,m:12},
+    {key:"waterSep",name:"Tøm vandudskiller",h:50,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:50,m:1},
+    {key:"sailDriveOil",name:"Sejldrevsolie (kun sejldrev)",h:100,m:6},
+    {key:"gearOil",name:"Geartolie (kun geart)",h:250,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:250,m:12},
+    {key:"coolant",name:"Kølevæske",h:0,m:24},
+    {key:"airFilter",name:"Rens luftfilter",h:250,m:12},
+    {key:"mixElbow",name:"Blandingsalbue",h:500,m:24},
+    {key:"impellerChange",name:"Skift impeller",h:1000,m:48}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Yanmar 3YM20",alt:"",qty:1,linkedTo:["oilFilter","oil"],note:"Kontroller mod manual"},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Yanmar 3YM20",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Yanmar 3YM20",alt:"",qty:1,linkedTo:["impellerChange","impellerCheck"],note:"Medbring pakning"},
+    {key:"sailDriveOil",name:"Sejldrevsolie SD20",oem:"PLACEHOLDER – specificér",alt:"",qty:1,linkedTo:["sailDriveOil"],note:"GL4.5 SAE 90/80W90"},
+    {key:"gearOil",name:"Geartolie",oem:"PLACEHOLDER – specificér",alt:"",qty:1,linkedTo:["gearOil"],note:"SAE 20/30 API CD+"}
+  ],
+  manual:{ notes:["Første olieskift efter 50 timer","Kontroller impeller hvert 250. time, skift ved 1000 timer","Kølevæske skiftes hvert 2. år"], source:"Yanmar YM Operation Manual – verificér mod din egen manual" }
+},
+"2YM15": {
+  brand:"Yanmar", model:"2YM15", hoursPerMonth:15,
+  fluids:{ Motorolie:"API CD el. højere, SAE 10W30 / 15W40", Drevolie:"Geart: SAE 20/30 (API CD+). Sejldrev SD20: GL4.5, SAE 90 / 80W90", Kølevæske:"Langtidsholdbar (LLC), 30-60 %" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:200,m:12},
+    {key:"oilFilter",name:"Oliefilter",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter",h:250,m:12},
+    {key:"waterSep",name:"Tøm vandudskiller",h:50,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:50,m:1},
+    {key:"sailDriveOil",name:"Sejldrevsolie (kun sejldrev)",h:100,m:6},
+    {key:"gearOil",name:"Geartolie (kun geart)",h:250,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:250,m:12},
+    {key:"coolant",name:"Kølevæske",h:0,m:24},
+    {key:"airFilter",name:"Rens luftfilter",h:250,m:12},
+    {key:"mixElbow",name:"Blandingsalbue",h:500,m:24},
+    {key:"impellerChange",name:"Skift impeller",h:1000,m:48}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Yanmar 2YM15",alt:"",qty:1,linkedTo:["oilFilter","oil"],note:""},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Yanmar 2YM15",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Yanmar 2YM15",alt:"",qty:1,linkedTo:["impellerChange","impellerCheck"],note:"Medbring pakning"},
+    {key:"sailDriveOil",name:"Sejldrevsolie SD20",oem:"PLACEHOLDER",alt:"",qty:1,linkedTo:["sailDriveOil"],note:"GL4.5 SAE 90/80W90"},
+    {key:"gearOil",name:"Geartolie",oem:"PLACEHOLDER",alt:"",qty:1,linkedTo:["gearOil"],note:"SAE 20/30 API CD+"}
+  ],
+  manual:{ notes:["Første olieskift efter 50 timer","Impeller tjek 250 t, skift 1000 t","Kølevæske hvert 2. år"], source:"Yanmar YM Operation Manual" }
+},
+"3YM30": {
+  brand:"Yanmar", model:"3YM30", hoursPerMonth:15,
+  fluids:{ Motorolie:"API CD el. højere, SAE 10W30 / 15W40", Drevolie:"Geart: SAE 20/30 (API CD+). Sejldrev SD20: GL4.5, SAE 90 / 80W90", Kølevæske:"Langtidsholdbar (LLC), 30-60 %" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:200,m:12},
+    {key:"oilFilter",name:"Oliefilter",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter",h:250,m:12},
+    {key:"waterSep",name:"Tøm vandudskiller",h:50,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:50,m:1},
+    {key:"sailDriveOil",name:"Sejldrevsolie (kun sejldrev)",h:100,m:6},
+    {key:"gearOil",name:"Geartolie (kun geart)",h:250,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:250,m:12},
+    {key:"coolant",name:"Kølevæske",h:0,m:24},
+    {key:"airFilter",name:"Rens luftfilter",h:250,m:12},
+    {key:"mixElbow",name:"Blandingsalbue",h:500,m:24},
+    {key:"impellerChange",name:"Skift impeller",h:1000,m:48}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Yanmar 3YM30",alt:"",qty:1,linkedTo:["oilFilter","oil"],note:""},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Yanmar 3YM30",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Yanmar 3YM30",alt:"",qty:1,linkedTo:["impellerChange","impellerCheck"],note:"Medbring pakning"},
+    {key:"sailDriveOil",name:"Sejldrevsolie SD20",oem:"PLACEHOLDER",alt:"",qty:1,linkedTo:["sailDriveOil"],note:"GL4.5 SAE 90/80W90"},
+    {key:"gearOil",name:"Geartolie",oem:"PLACEHOLDER",alt:"",qty:1,linkedTo:["gearOil"],note:"SAE 20/30 API CD+"}
+  ],
+  manual:{ notes:["Første olieskift efter 50 timer","Impeller tjek 250 t, skift 1000 t","Kølevæske hvert 2. år"], source:"Yanmar YM Operation Manual" }
+},
+"D1-13": {
+  brand:"Volvo Penta", model:"D1-13", hoursPerMonth:15,
+  fluids:{ Motorolie:"VDS-3 (eller VDS-2 + API CH-4/CI-4), SAE 15W/40 eller 20W/50", Drevolie:"ATF (Dexron II/III) i gear og sejldrev 130S", Kølevæske:"40 % Volvo Penta Coolant, 60 % rent vand" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:200,m:12},
+    {key:"gearOil",name:"Gear-/sejldrevsolie",h:200,m:12},
+    {key:"anoder",name:"Anoder og korrosionsbeskyttelse",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter og forfilter",h:500,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:500,m:12},
+    {key:"coolant",name:"Kølevæske og varmeveksler",h:500,m:24},
+    {key:"airFilter",name:"Luftfilter",h:500,m:24},
+    {key:"foldProp",name:"Rens foldepropel",h:0,m:12},
+    {key:"manchet",name:"Gummimanchet sejldrev",h:0,m:12},
+    {key:"waterSep",name:"Tøm vand fra forfilter",h:0,m:1},
+    {key:"belt",name:"Drivrem",h:0,m:1},
+    {key:"seaWaterFilter",name:"Søvandsfilter",h:0,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:0,m:1}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Volvo Penta D1-13",alt:"",qty:1,linkedTo:["oil"],note:""},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Volvo Penta D1-13",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Volvo Penta D1-13",alt:"",qty:1,linkedTo:["impellerCheck"],note:""},
+    {key:"sailDriveOil",name:"Sejldrevsolie 130S",oem:"PLACEHOLDER",alt:"ATF Dexron II/III",qty:1,linkedTo:["gearOil"],note:""}
+  ],
+  manual:{ notes:["Første olieskift efter 20-50 timer","Oliestand gear/sejldrev tjekkes hver 14. dag","Kølevæske hvert 2. år"], source:"Volvo Penta D1 instruktionsbog" }
+},
+"D1-20": {
+  brand:"Volvo Penta", model:"D1-20", hoursPerMonth:15,
+  fluids:{ Motorolie:"VDS-3 (eller VDS-2 + API CH-4/CI-4), SAE 15W/40 eller 20W/50", Drevolie:"ATF (Dexron II/III) i gear og sejldrev 130S", Kølevæske:"40 % Volvo Penta Coolant, 60 % rent vand" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:200,m:12},
+    {key:"gearOil",name:"Gear-/sejldrevsolie",h:200,m:12},
+    {key:"anoder",name:"Anoder og korrosionsbeskyttelse",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter og forfilter",h:500,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:500,m:12},
+    {key:"coolant",name:"Kølevæske og varmeveksler",h:500,m:24},
+    {key:"airFilter",name:"Luftfilter",h:500,m:24},
+    {key:"foldProp",name:"Rens foldepropel",h:0,m:12},
+    {key:"manchet",name:"Gummimanchet sejldrev",h:0,m:12},
+    {key:"waterSep",name:"Tøm vand fra forfilter",h:0,m:1},
+    {key:"belt",name:"Drivrem",h:0,m:1},
+    {key:"seaWaterFilter",name:"Søvandsfilter",h:0,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:0,m:1}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Volvo Penta D1-20",alt:"",qty:1,linkedTo:["oil"],note:""},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Volvo Penta D1-20",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Volvo Penta D1-20",alt:"",qty:1,linkedTo:["impellerCheck"],note:""},
+    {key:"sailDriveOil",name:"Sejldrevsolie 130S",oem:"PLACEHOLDER",alt:"ATF Dexron II/III",qty:1,linkedTo:["gearOil"],note:""}
+  ],
+  manual:{ notes:["Første olieskift efter 20-50 timer","Oliestand gear/sejldrev tjekkes hver 14. dag","Kølevæske hvert 2. år"], source:"Volvo Penta D1 instruktionsbog" }
+},
+"D1-30": {
+  brand:"Volvo Penta", model:"D1-30", hoursPerMonth:15,
+  fluids:{ Motorolie:"VDS-3 (eller VDS-2 + API CH-4/CI-4), SAE 15W/40 eller 20W/50", Drevolie:"ATF (Dexron II/III) i gear og sejldrev 130S", Kølevæske:"40 % Volvo Penta Coolant, 60 % rent vand" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:200,m:12},
+    {key:"gearOil",name:"Gear-/sejldrevsolie",h:200,m:12},
+    {key:"anoder",name:"Anoder og korrosionsbeskyttelse",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter og forfilter",h:500,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:500,m:12},
+    {key:"coolant",name:"Kølevæske og varmeveksler",h:500,m:24},
+    {key:"airFilter",name:"Luftfilter",h:500,m:24},
+    {key:"foldProp",name:"Rens foldepropel",h:0,m:12},
+    {key:"manchet",name:"Gummimanchet sejldrev",h:0,m:12},
+    {key:"waterSep",name:"Tøm vand fra forfilter",h:0,m:1},
+    {key:"belt",name:"Drivrem",h:0,m:1},
+    {key:"seaWaterFilter",name:"Søvandsfilter",h:0,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:0,m:1}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Volvo Penta D1-30",alt:"",qty:1,linkedTo:["oil"],note:""},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Volvo Penta D1-30",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Volvo Penta D1-30",alt:"",qty:1,linkedTo:["impellerCheck"],note:""},
+    {key:"sailDriveOil",name:"Sejldrevsolie 130S",oem:"PLACEHOLDER",alt:"ATF Dexron II/III",qty:1,linkedTo:["gearOil"],note:""}
+  ],
+  manual:{ notes:["Første olieskift efter 20-50 timer","Oliestand gear/sejldrev tjekkes hver 14. dag","Kølevæske hvert 2. år"], source:"Volvo Penta D1 instruktionsbog" }
+},
+"D2-40": {
+  brand:"Volvo Penta", model:"D2-40", hoursPerMonth:15,
+  fluids:{ Motorolie:"VDS-3 (eller VDS-2 + API CH-4/CI-4), SAE 15W/40 eller 20W/50", Drevolie:"ATF (Dexron II/III) i gear og sejldrev 130S", Kølevæske:"40 % Volvo Penta Coolant, 60 % rent vand" },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:500,m:12},
+    {key:"gearOil",name:"Gear-/sejldrevsolie",h:200,m:12},
+    {key:"anoder",name:"Anoder og korrosionsbeskyttelse",h:200,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter og forfilter",h:500,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:500,m:12},
+    {key:"coolant",name:"Kølevæske og varmeveksler",h:500,m:24},
+    {key:"airFilter",name:"Luftfilter",h:500,m:24},
+    {key:"foldProp",name:"Rens foldepropel",h:0,m:12},
+    {key:"manchet",name:"Gummimanchet sejldrev",h:0,m:12},
+    {key:"waterSep",name:"Tøm vand fra forfilter",h:0,m:1},
+    {key:"belt",name:"Drivrem",h:0,m:1},
+    {key:"seaWaterFilter",name:"Søvandsfilter",h:0,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:0,m:1}
+  ],
+  parts:[
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – Volvo Penta D2-40",alt:"",qty:1,linkedTo:["oil"],note:""},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – Volvo Penta D2-40",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller",oem:"PLACEHOLDER – Volvo Penta D2-40",alt:"",qty:1,linkedTo:["impellerCheck"],note:""},
+    {key:"sailDriveOil",name:"Sejldrevsolie 130S",oem:"PLACEHOLDER",alt:"ATF Dexron II/III",qty:1,linkedTo:["gearOil"],note:""}
+  ],
+  manual:{ notes:["Første olieskift efter 20-50 timer","Oliestand gear/sejldrev tjekkes hver 14. dag","Kølevæske hvert 2. år"], source:"Volvo Penta D2 instruktionsbog" }
+},
+"MD2020D": {
+  brand:"Volvo Penta", model:"MD2020D", hoursPerMonth:15,
+  fluids:{
+    Motorolie:"SAE 15W-40 marine diesel (API CD el. højere)",
+    Drevolie:"Sejldrev: Volvo Penta gearolie el. ATF Dexron II/III. MS-gear: SAE 15W/40",
+    Kølevæske:"Volvo Penta Coolant blandet 40/60 med rent vand"
+  },
+  intervals:[
+    {key:"oil",name:"Motorolie og oliefilter",h:100,m:12},
+    {key:"fuelFilter",name:"Brændstoffilter (for + fin)",h:200,m:12},
+    {key:"impellerCheck",name:"Impeller (tjek)",h:200,m:12},
+    {key:"impellerChange",name:"Skift impeller",h:200,m:12},
+    {key:"waterSep",name:"Tøm vandudskiller",h:50,m:1},
+    {key:"battery",name:"Batteri, væskestand",h:50,m:1},
+    {key:"belt",name:"Drivrem (kontrol/spænding)",h:50,m:1},
+    {key:"sailDriveOil",name:"Sejldrevsolie",h:100,m:12},
+    {key:"gearOil",name:"Gearolie (MS)",h:100,m:12},
+    {key:"coolant",name:"Kølevæske",h:0,m:24},
+    {key:"airFilter",name:"Rens luftfilter",h:200,m:12},
+    {key:"anoder",name:"Anoder",h:0,m:12}
+  ],
+  parts:[
+    {key:"oilFilter",name:"
