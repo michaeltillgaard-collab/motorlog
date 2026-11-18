@@ -53,8 +53,6 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0}dt{color:va
 .manual-box h3{margin:0 0 8px;font-size:15px}
 .manual-box ul{margin:0;padding-left:18px;font-size:14px;line-height:1.6}
 .manual-box .src{font-size:12px;color:var(--mut);margin-top:8px;font-style:italic}
-.install-bar{background:var(--ok);color:#fff;border-radius:10px;padding:12px;margin-bottom:12px;display:flex;gap:12px;align-items:center;font-size:14px}
-.install-bar button{background:#fff;color:var(--ok);border:0;font-weight:600;min-height:40px;padding:0 12px}
 </style></head><body>
 <main id="v"></main>
 <nav id="nav"></nav>
@@ -62,7 +60,6 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0}dt{color:va
 <script>
 // ============ PWA BOOTSTRAP ============
 (function(){
-  // Generate SVG icon as data-URL
   const iconSVG = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 512 512">
     <rect width="512" height="512" rx="96" fill="#14232d"/>
     <text x="256" y="300" font-family="system-ui,sans-serif" font-size="200" font-weight="700" fill="#f2e9c9" text-anchor="middle">ML</text>
@@ -71,7 +68,6 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0}dt{color:va
   const iconURL = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSVG(512));
   const icon192 = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(iconSVG(192));
 
-  // Inline manifest
   const manifest = {
     name: "Motorlog",
     short_name: "Motorlog",
@@ -93,10 +89,9 @@ dl{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;margin:0}dt{color:va
   document.getElementById("apple-icon").href = icon192;
   document.getElementById("favicon").href = iconURL;
 
-  // Inline service worker (minimal, caches the page itself)
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
     const swCode = `
-      const CACHE = "motorlog-v1";
+      const CACHE = "motorlog-v2";
       self.addEventListener("install", e => { self.skipWaiting(); });
       self.addEventListener("activate", e => { e.waitUntil(self.clients.claim()); });
       self.addEventListener("fetch", e => {
@@ -326,4 +321,7 @@ const ENGINES = {
     {key:"anoder",name:"Anoder",h:0,m:12}
   ],
   parts:[
-    {key:"oilFilter",name:"
+    {key:"oilFilter",name:"Oliefilter",oem:"PLACEHOLDER – MD2020 (861473 ref.)",alt:"",qty:1,linkedTo:["oil"],note:"Verificér mod dit serienummer"},
+    {key:"fuelFilter",name:"Brændstoffilter",oem:"PLACEHOLDER – MD2020 (861477 ref.)",alt:"",qty:1,linkedTo:["fuelFilter"],note:""},
+    {key:"impeller",name:"Impeller kit",oem:"PLACEHOLDER – MD2020",alt:"",qty:1,linkedTo:["impellerChange","impellerCheck"],note:"Kontroller pumpetype – rund dæksel = anden impeller"},
+    {key:"sailDriveOil",name:"Sejldrevsolie",oem:"PL
